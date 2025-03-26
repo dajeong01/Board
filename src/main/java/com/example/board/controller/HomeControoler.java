@@ -14,4 +14,7 @@ public class HomeControoler {
 	public String a() {
 		return "";
 	}
+	public String b() {
+		return "";
+	}
 }
