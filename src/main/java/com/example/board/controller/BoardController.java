@@ -19,9 +19,15 @@ import javax.persistence.Query;
 import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -124,6 +130,53 @@ public class BoardController {
 		query.setParameter("filepath", filePath);
 		query.executeUpdate();
 		return "success";
+	}
+
+	// 상세보기
+	@GetMapping("/boardDetail/{idx}")
+	public String boardDetail(@PathVariable("idx") Long idx, Model model) {
+		String sql = " SELECT idx, title, content, writer, regdate, fileName, filepath  "
+				+ " FROM tbl_board WHERE idx = :idx ";
+		Query query = entityManager.createNativeQuery(sql);
+		query.setParameter("idx", idx);
+
+		Object[] row = (Object[]) query.getSingleResult();
+		Map<String, Object> detail = new HashMap<>();
+
+		detail.put("idx", row[0]);
+		detail.put("title", row[1]);
+		detail.put("content", row[2]);
+		detail.put("writer", row[3]);
+		detail.put("regdate", row[4]);
+		detail.put("fileName", row[5]);
+		detail.put("filepath", row[6]);
+
+		model.addAttribute("detail", detail);
+		return "board/detail";
+	}
+
+	@GetMapping("/board/image")
+	@ResponseBody
+	public ResponseEntity<Resource> getBoardImage(@RequestParam("path") String filePath) {
+		try {
+			Path imagePath = Paths.get(filePath).normalize();
+			Resource resource = new UrlResource(imagePath.toUri());
+			if (!resource.exists()) {
+				return ResponseEntity.notFound().build();
+			}
+			String contentType = Files.probeContentType(imagePath);
+			if (contentType == null) {
+				contentType = "application/octet-stream";
+			}
+
+			return ResponseEntity.ok().contentType(MediaType.parseMediaType(contentType)) // 동적으로 Content-Type 설정
+					.header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+					.body(resource);
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+			return ResponseEntity.internalServerError().build();
+		}
 	}
 
 	private static void createDirectoryWithPermissions(String dirPath) throws IOException {
